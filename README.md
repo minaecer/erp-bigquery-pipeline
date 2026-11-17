@@ -84,3 +84,5 @@ docker-compose.yml           Local Airflow (standalone mode)
 - Intermediate files live on a local volume. A production version would land them in Cloud Storage.
 - Dimensions are SCD Type 1. SCD Type 2 for customers would preserve history.
 - Possible additions: dbt for the SQL layer, Terraform for datasets and IAM, CI with GitHub Actions (lint + tests), a Looker Studio dashboard screenshot.
+- <img width="1597" height="773" alt="Screenshot 2026-11-18 at 00 32 23" src="https://github.com/user-attachments/assets/a12e55e8-b0c8-4f5a-802b-90e82070966e" />
+
