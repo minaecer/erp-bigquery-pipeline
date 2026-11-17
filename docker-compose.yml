@@ -1,0 +1,22 @@
+# Single-container Airflow for local development (SQLite metadata DB, SequentialExecutor).
+# For production use Postgres + CeleryExecutor/KubernetesExecutor or Cloud Composer.
+services:
+  airflow:
+    build: .
+    container_name: erp_airflow
+    command: standalone
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      PYTHONPATH: /opt/airflow/src
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      BQ_LOCATION: ${BQ_LOCATION:-EU}
+      GOOGLE_APPLICATION_CREDENTIALS: /opt/airflow/secrets/service_account.json
+      DATA_DIR: /opt/airflow/data
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+      - ./sql:/opt/airflow/sql
+      - ./data:/opt/airflow/data
+      - ./secrets:/opt/airflow/secrets:ro

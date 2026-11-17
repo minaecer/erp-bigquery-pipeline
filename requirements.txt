@@ -1,0 +1,6 @@
+pandas>=2.0
+numpy>=1.26
+pyarrow>=14.0
+google-cloud-bigquery>=3.20
+db-dtypes>=1.2
+pytest>=8.0

@@ -1,0 +1,11 @@
+.env
+secrets/*
+!secrets/.gitkeep
+data/*
+!data/.gitkeep
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+logs/
+standalone_admin_password.txt
