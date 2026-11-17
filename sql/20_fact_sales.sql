@@ -1,7 +1,5 @@
--- Idempotent daily rebuild of one partition: delete the day, insert the day.
-DELETE FROM `${PROJECT}.${DWH}.fact_sales` WHERE order_date = @ds;
-
-INSERT INTO `${PROJECT}.${DWH}.fact_sales`
+-- A single SELECT. The pipeline writes its result into fact_sales$YYYYMMDD with WRITE_TRUNCATE,
+-- which overwrites that day's partition (idempotent, and no DML needed).
 SELECT
   l.order_id,
   l.line_no,
@@ -20,7 +18,7 @@ SELECT
   CURRENT_TIMESTAMP() AS loaded_at
 FROM `${PROJECT}.${STG}.sales_lines` AS l
 JOIN `${PROJECT}.${STG}.sales_orders` AS o
-  ON o.order_id = l.order_id AND o._load_date = @ds
+  ON o.order_id = l.order_id AND o._load_date = @ds AND o.order_date = @ds
 LEFT JOIN `${PROJECT}.${STG}.fx_rates` AS fx
   ON fx.rate_date = o.order_date AND fx.currency = o.currency AND fx._load_date = @ds
 WHERE l._load_date = @ds;

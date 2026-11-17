@@ -14,7 +14,6 @@ from .transform import validate
 
 log = logging.getLogger(__name__)
 TABLES = ["customers", "products", "sales_orders", "sales_lines", "fx_rates"]
-SQL_STEPS = ["00_ddl.sql", "10_dim_customer.sql", "11_dim_product.sql", "20_fact_sales.sql", "30_views.sql"]
 
 
 def _d(ds: str) -> date:
@@ -74,9 +73,13 @@ def load_step(ds: str) -> dict:
 
 def transform_step(ds: str) -> None:
     c = bq.client()
-    for sql_file in SQL_STEPS:
+    d = _d(ds)
+    for sql_file in ("00_ddl.sql", "10_dim_customer.sql", "11_dim_product.sql"):
         log.info("Running %s", sql_file)
-        bq.run_sql_file(c, sql_file, _d(ds))
+        bq.run_sql_file(c, sql_file, d)
+    log.info("Rebuilding fact_sales partition for %s", ds)
+    bq.build_fact_partition(c, "20_fact_sales.sql", d)
+    bq.run_sql_file(c, "30_views.sql", d)
 
 
 def dq_step(ds: str) -> dict:

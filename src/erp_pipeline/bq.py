@@ -49,7 +49,11 @@ def ensure_datasets(c) -> None:
 
 
 def load_table(c, name: str, df: pd.DataFrame, ds: date) -> int:
-    """Idempotent load: delete today's partition, then append. Re-running a day never duplicates rows."""
+    """Idempotent, DML-free load: overwrite exactly one day's partition (table$YYYYMMDD).
+
+    Re-running or backfilling a date replaces that partition, so it never duplicates rows.
+    Works in the BigQuery sandbox (no billing), which does not allow DML statements.
+    """
     bq = _bq()
     schema = schemas()[name]
     table_id = f"{config.project_id()}.{config.STG_DATASET}.{name}"
@@ -62,16 +66,13 @@ def load_table(c, name: str, df: pd.DataFrame, ds: date) -> int:
     )
     c.create_table(table, exists_ok=True)
 
-    c.query(
-        f"DELETE FROM `{table_id}` WHERE _load_date = @ds",
-        job_config=bq.QueryJobConfig(query_parameters=[bq.ScalarQueryParameter("ds", "DATE", ds)]),
-    ).result()
-
+    partition = f"{table_id}${ds:%Y%m%d}"
     if df.empty:
+        c.delete_table(partition, not_found_ok=True)  # clear a stale partition from an earlier run
         return 0
     df = df[[f.name for f in schema]]
     job = c.load_table_from_dataframe(
-        df, table_id, job_config=bq.LoadJobConfig(schema=schema, write_disposition="WRITE_APPEND")
+        df, partition, job_config=bq.LoadJobConfig(schema=schema, write_disposition="WRITE_TRUNCATE")
     )
     job.result()
     return len(df)
@@ -88,7 +89,25 @@ def _render(sql: str) -> str:
 def run_sql_file(c, filename: str, ds: date) -> None:
     bq = _bq()
     sql = _render(Path(config.SQL_DIR, filename).read_text())
-    c.query(sql, job_config=bq.QueryJobConfig(query_parameters=[bq.ScalarQueryParameter("ds", "DATE", ds)])).result()
+    params = [bq.ScalarQueryParameter("ds", "DATE", ds)] if "@ds" in sql else []
+    c.query(sql, job_config=bq.QueryJobConfig(query_parameters=params)).result()
+
+
+def build_fact_partition(c, filename: str, ds: date) -> None:
+    """Write the SELECT in `filename` into fact_sales$YYYYMMDD with WRITE_TRUNCATE (a partition overwrite).
+
+    This is a query job with a destination table, not a DML statement, so it is idempotent per day
+    and works in the BigQuery sandbox.
+    """
+    bq = _bq()
+    sql = _render(Path(config.SQL_DIR, filename).read_text())
+    destination = f"{config.project_id()}.{config.DWH_DATASET}.fact_sales${ds:%Y%m%d}"
+    job_config = bq.QueryJobConfig(
+        destination=destination,
+        write_disposition="WRITE_TRUNCATE",
+        query_parameters=[bq.ScalarQueryParameter("ds", "DATE", ds)],
+    )
+    c.query(sql, job_config=job_config).result()
 
 
 def scalar(c, sql: str, ds: date):

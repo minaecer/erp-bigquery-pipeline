@@ -1,21 +1,5 @@
--- Warehouse tables (idempotent). ${PROJECT}/${STG}/${DWH} are substituted by the pipeline.
-
-CREATE TABLE IF NOT EXISTS `${PROJECT}.${DWH}.dim_customer` (
-  customer_id   STRING NOT NULL,
-  customer_name STRING,
-  segment       STRING,
-  city          STRING,
-  region        STRING,
-  updated_at    TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS `${PROJECT}.${DWH}.dim_product` (
-  product_id     STRING NOT NULL,
-  product_name   STRING,
-  category       STRING,
-  list_price_eur NUMERIC,
-  updated_at     TIMESTAMP
-);
+-- Idempotent DDL. ${PROJECT}/${STG}/${DWH} are substituted by the pipeline.
+-- No DML anywhere in this project, so it also runs in the BigQuery sandbox (no billing).
 
 CREATE TABLE IF NOT EXISTS `${PROJECT}.${DWH}.dim_date` AS
 SELECT
@@ -30,10 +14,11 @@ SELECT
 FROM UNNEST(GENERATE_DATE_ARRAY('2024-01-01', '2030-12-31')) AS d;
 
 -- Fact grain: one row per sales order line. Partitioned by day, clustered for typical BI filters.
+-- Each day's partition is overwritten by the pipeline (see 20_fact_sales.sql).
 CREATE TABLE IF NOT EXISTS `${PROJECT}.${DWH}.fact_sales` (
-  order_id       STRING NOT NULL,
-  line_no        INT64  NOT NULL,
-  order_date     DATE   NOT NULL,
+  order_id       STRING,
+  line_no        INT64,
+  order_date     DATE,
   customer_id    STRING,
   product_id     STRING,
   region         STRING,
